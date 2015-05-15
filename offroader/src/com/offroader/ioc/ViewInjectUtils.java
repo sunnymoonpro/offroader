@@ -1,0 +1,153 @@
+package com.offroader.ioc;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+
+import android.app.Activity;
+import android.view.View;
+
+import com.offroader.ioc.annotation.ORContentView;
+import com.offroader.ioc.annotation.ORViewInject;
+import com.offroader.ioc.annotation.event.OREventBase;
+import com.offroader.utils.LogUtils;
+
+public class ViewInjectUtils {
+	private static final String METHOD_SET_CONTENTVIEW = "setContentView";
+	private static final String METHOD_FIND_VIEW_BY_ID = "findViewById";
+
+	public static void inject(Activity activity) {
+
+		injectContentView(activity);
+		injectViews(activity);
+		injectEvents(activity);
+
+	}
+
+	/**
+	 * 注入主布局文件
+	 * 
+	 * @param activity
+	 */
+	private static void injectContentView(Activity activity) {
+
+		Class<? extends Activity> clazz = activity.getClass();
+		ORContentView contentView = clazz.getAnnotation(ORContentView.class);
+
+		if (contentView != null) {
+
+			int contentViewLayoutId = contentView.value();
+			try {
+
+				Method method = clazz.getMethod(METHOD_SET_CONTENTVIEW, int.class);
+				method.setAccessible(true);
+				method.invoke(activity, contentViewLayoutId);
+
+			} catch (Exception e) {
+				LogUtils.error(e.getMessage(), e);
+			}
+
+		}
+	}
+
+	/**
+	 * 注入所有的控件
+	 * 
+	 * @param activity
+	 */
+	private static void injectViews(Activity activity) {
+
+		Class<? extends Activity> clazz = activity.getClass();
+		Field[] fields = clazz.getDeclaredFields();
+
+		// 遍历所有成员变量
+		for (Field field : fields) {
+
+			ORViewInject viewInjectAnnotation = field.getAnnotation(ORViewInject.class);
+			if (viewInjectAnnotation != null) {
+				int viewId = viewInjectAnnotation.value();
+				if (viewId != -1) {
+
+					// 初始化View
+					try {
+
+						Method method = clazz.getMethod(METHOD_FIND_VIEW_BY_ID, int.class);
+						Object resView = method.invoke(activity, viewId);
+						field.setAccessible(true);
+						field.set(activity, resView);
+
+					} catch (Exception e) {
+						LogUtils.error(e.getMessage(), e);
+					}
+
+				}
+			}
+
+		}
+
+	}
+
+	/**
+	 * 注入所有的事件
+	 * 
+	 * @param activity
+	 */
+	private static void injectEvents(Activity activity) {
+
+		//得到当前Activity的所有方法
+		Method[] methods = activity.getClass().getDeclaredMethods();
+
+		//遍历所有的方法
+		for (Method method : methods) {
+
+			//拿到方法上的所有的注解
+			Annotation[] annotations = method.getAnnotations();
+
+			//遍历所有的注解
+			for (Annotation annotation : annotations) {
+
+				//拿到注解上的注解类型实例(Class)
+				Class<? extends Annotation> annotationType = annotation.annotationType();
+
+				//拿到注解类型实例(Class)上的某一注解
+				OREventBase eventBaseAnnotation = annotationType.getAnnotation(OREventBase.class);
+
+				//如果存在EventBase
+				if (eventBaseAnnotation != null) {
+
+					//取出设置监听器的方法名称，监听器的类型，触发的方法名
+					String listenerSetter = eventBaseAnnotation.listenerSetter();
+					Class<?> listenerType = eventBaseAnnotation.listenerType();
+					String methodName = eventBaseAnnotation.methodName();
+
+					try {
+
+						//拿到Onclick注解中的value方法
+						Method aMethod = annotationType.getDeclaredMethod("value");
+
+						//调用方法，取出所有的viewId
+						int[] viewIds = (int[]) aMethod.invoke(annotation, null);
+
+						//通过InvocationHandler设置代理
+						DynamicHandler handler = new DynamicHandler(activity);
+						handler.addMethod(methodName, method);
+						Object listener = Proxy.newProxyInstance(listenerType.getClassLoader(), new Class<?>[] { listenerType }, handler);
+
+						//遍历所有的View，设置事件
+						for (int viewId : viewIds) {
+							View view = activity.findViewById(viewId);
+							Method setEventListenerMethod = view.getClass().getMethod(listenerSetter, listenerType);
+							setEventListenerMethod.invoke(view, listener);
+						}
+
+					} catch (Exception e) {
+						LogUtils.error(e.getMessage(), e);
+					}
+				}
+
+			}
+		}
+
+	}
+}
