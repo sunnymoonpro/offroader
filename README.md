@@ -1,6 +1,8 @@
 # 
 ## offroader简介
 
+版本：1.0.0
+
 * Android轻量级开发框架，基于IOC,AOP思想
 * 主要功能： 
 > * 1. APP生命周期管理 
