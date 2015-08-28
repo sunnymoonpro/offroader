@@ -4,7 +4,6 @@ import java.util.Map;
 
 import android.app.Activity;
 
-import com.offroader.http.HttpHelper;
 import com.offroader.task.EasyTask;
 
 public class MyEasyTask extends EasyTask<Activity, Void, Void, TestHttpBean> {
@@ -26,7 +25,7 @@ public class MyEasyTask extends EasyTask<Activity, Void, Void, TestHttpBean> {
 	@Override
 	public TestHttpBean doInBackground(Void... params) {
 
-		return HttpHelper.getInstance().get(url, paramMap, TestHttpBean.class);
+		return null;
 	}
 
 	@Override
