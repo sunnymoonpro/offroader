@@ -30,6 +30,7 @@ public class MainActivity extends OffRoaderActivity {
 		super.onCreate(savedInstanceState);
 
 		tv1.setText("测试1");
+		
 
 		tv2.setText("测试2");
 		tv2.setText("测试3");
